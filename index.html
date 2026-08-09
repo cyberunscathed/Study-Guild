@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QuestBoard — Study Together, Level Up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===================== LOGIN SCREEN ===================== -->
+  <section id="loginScreen" class="screen screen--center">
+    <div class="login-card">
+      <p class="eyebrow">A shared study board</p>
+      <h1 class="wordmark">Quest<span>Board</span></h1>
+      <p class="login-sub">Pick a party name. Everyone on this board sees the same quests, in real time.</p>
+      <form id="loginForm" class="login-form">
+        <input id="nameInput" type="text" maxlength="24" placeholder="Your name" autocomplete="off" required />
+        <button type="submit" class="btn btn--primary">Enter the board</button>
+      </form>
+      <p id="loginError" class="form-error" hidden></p>
+    </div>
+  </section>
+
+  <!-- ===================== MAIN APP ===================== -->
+  <section id="appScreen" class="screen" hidden>
+
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="wordmark wordmark--sm">Quest<span>Board</span></span>
+      </div>
+      <div class="topbar__me">
+        <div class="me-level" id="meLevel">Lv. 1</div>
+        <div class="me-name" id="meName">—</div>
+        <div class="me-xp-track"><div class="me-xp-fill" id="meXpFill"></div></div>
+        <div class="me-points" id="mePoints">0 pts</div>
+      </div>
+    </header>
+
+    <main class="board">
+
+      <!-- QUEST BOARD -->
+      <section class="board__main">
+        <div class="board__header">
+          <h2>Open Quests</h2>
+          <button id="newQuestBtn" class="btn btn--accent">+ New Quest</button>
+        </div>
+
+        <p id="pendingBanner" class="pending-banner" hidden></p>
+        <div id="questList" class="quest-grid"></div>
+        <p id="emptyState" class="empty-state" hidden>The board is clear. Post a quest to get the party started.</p>
+      </section>
+
+      <!-- LEADERBOARD -->
+      <aside class="board__side">
+        <h3 class="side-title">Guild Roster</h3>
+        <ol id="leaderboard" class="leaderboard"></ol>
+      </aside>
+
+    </main>
+  </section>
+
+  <!-- ===================== NEW QUEST MODAL ===================== -->
+  <div id="questModal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <div class="modal__head">
+        <h3>Post a new quest</h3>
+        <button id="closeQuestModal" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <form id="questForm" class="modal-form">
+        <label>Title
+          <input id="qTitle" type="text" maxlength="80" required placeholder="e.g. Finish Ch.4 problem set" />
+        </label>
+        <div class="modal-form__row">
+          <label>Subject
+            <input id="qSubject" type="text" maxlength="30" placeholder="e.g. Calculus" />
+          </label>
+          <label>Base points (max 50)
+            <input id="qPoints" type="number" min="5" max="50" value="20" required />
+          </label>
+        </div>
+        <label>Estimated time (minutes)
+          <input id="qEstimate" type="number" min="1" max="600" value="30" required />
+        </label>
+        <label>Notes (optional)
+          <textarea id="qNotes" rows="3" maxlength="400" placeholder="Any detail that helps whoever claims this"></textarea>
+        </label>
+        <button type="submit" class="btn btn--primary btn--block" id="questSubmitBtn">Post quest</button>
+        <p id="qStatus" class="proof-status" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== SUBMIT PROOF MODAL ===================== -->
+  <div id="proofModal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <div class="modal__head">
+        <h3>Turn in your work</h3>
+        <button id="closeProofModal" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <p class="proof-quest-title" id="proofQuestTitle"></p>
+      <form id="proofForm" class="modal-form">
+        <label>Describe what you did
+          <textarea id="proofText" rows="5" maxlength="800" required
+            placeholder="Be specific — which problems, pages, or steps, and what you found. 'I finished it' will be rejected. This is checked by AI to confirm the quest was actually done (not graded for correctness)."></textarea>
+        </label>
+        <button type="submit" class="btn btn--accent btn--block" id="proofSubmitBtn">Verify &amp; turn in</button>
+        <p id="proofStatus" class="proof-status" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- Firebase (compat build — simplest for a static page, no bundler needed) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,523 @@
+/* Must come first: browsers normally hide [hidden] elements by
+   default, but our own display:flex/grid rules below (on .screen,
+   .modal-backdrop, etc.) override that default unless we force it
+   back with !important here. */
+[hidden] { display: none !important; }
+
+/* =========================================================
+   QUESTBOARD — design tokens
+   ========================================================= */
+
+:root {
+  --ink: #14171f;
+  --ink-raised: #1c202b;
+  --ink-line: #2a2f3d;
+  --parchment: #efe7d8;
+  --parchment-dim: #d9d0bd;
+  --ember: #d9a441;
+  --ember-bright: #f0bf5e;
+  --sage: #5c8b72;
+  --rosewood: #8b4049;
+  --ink-text: #e9e6dd;
+  --ink-text-dim: #9a9fb0;
+
+  --font-display: "Fraunces", serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --radius: 10px;
+  --shadow-card: 0 1px 0 rgba(0,0,0,0.25), 0 8px 20px -10px rgba(0,0,0,0.5);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--ink-text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+button, input, textarea { font-family: inherit; }
+
+a { color: var(--ember-bright); }
+
+:focus-visible {
+  outline: 2px solid var(--ember-bright);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* =========================================================
+   WORDMARK
+   ========================================================= */
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 2.1rem;
+  letter-spacing: -0.01em;
+  color: var(--ink-text);
+}
+.wordmark span { color: var(--ember); font-style: italic; }
+.wordmark--sm { font-size: 1.3rem; }
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--ink-text-dim);
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+/* =========================================================
+   SCREENS
+   ========================================================= */
+
+.screen { width: 100%; min-height: 100vh; }
+.screen--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(600px 400px at 15% 10%, rgba(217,164,65,0.10), transparent 60%),
+    radial-gradient(500px 380px at 85% 90%, rgba(92,139,114,0.10), transparent 60%),
+    var(--ink);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--ink-raised);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  padding: 36px 32px;
+  box-shadow: var(--shadow-card);
+}
+
+.login-sub {
+  color: var(--ink-text-dim);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 10px 0 24px;
+}
+
+.login-form { display: flex; flex-direction: column; gap: 12px; }
+
+.form-error {
+  color: var(--rosewood);
+  font-size: 0.85rem;
+  margin-top: 10px;
+}
+
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
+
+input[type="text"], input[type="number"], textarea {
+  background: var(--ink);
+  border: 1px solid var(--ink-line);
+  color: var(--ink-text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  width: 100%;
+}
+input::placeholder, textarea::placeholder { color: #5c6072; }
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--ink-text-dim);
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 11px 18px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: translateY(1px); }
+.btn--block { width: 100%; }
+.btn--primary { background: var(--ember); color: #241a06; }
+.btn--accent { background: var(--sage); color: #0d1a13; }
+.btn--danger { background: var(--rosewood); color: #ffe9ea; }
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--ink-text-dim);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.icon-btn:hover { color: var(--ink-text); }
+
+/* =========================================================
+   TOPBAR
+   ========================================================= */
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--ink-line);
+  background: var(--ink-raised);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.topbar__me {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.me-level {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--ember);
+  color: #241a06;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.me-name { font-weight: 600; font-size: 0.92rem; }
+
+.me-xp-track {
+  width: 90px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ink-line);
+  overflow: hidden;
+}
+.me-xp-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--ember), var(--ember-bright));
+  transition: width 0.5s ease;
+}
+
+.me-points {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--ink-text-dim);
+}
+
+/* =========================================================
+   BOARD LAYOUT
+   ========================================================= */
+
+.board {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 28px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+@media (max-width: 860px) {
+  .board { grid-template-columns: 1fr; }
+}
+
+.board__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.board__header h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.pending-banner {
+  background: rgba(217,164,65,0.12);
+  color: var(--ember-bright);
+  border: 1px solid rgba(217,164,65,0.35);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  color: var(--ink-text-dim);
+  font-size: 0.9rem;
+  padding: 40px 0;
+  text-align: center;
+  border: 1px dashed var(--ink-line);
+  border-radius: var(--radius);
+}
+
+/* =========================================================
+   QUEST CARDS  (pinned-note aesthetic — the signature element)
+   ========================================================= */
+
+.quest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.quest-card {
+  position: relative;
+  background: var(--parchment);
+  color: #241f14;
+  border-radius: 6px;
+  padding: 18px 16px 16px;
+  box-shadow: var(--shadow-card);
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 0.15s ease;
+}
+.quest-card:hover { transform: rotate(0deg) translateY(-2px); }
+
+.quest-card::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 20px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--rosewood);
+  box-shadow: 0 2px 3px rgba(0,0,0,0.4);
+}
+
+.quest-card__subject {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  color: #6b5f3f;
+  margin-bottom: 4px;
+}
+
+.quest-card__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.08rem;
+  margin: 0 0 8px;
+  line-height: 1.25;
+}
+
+.quest-card__notes {
+  font-size: 0.83rem;
+  color: #4a4331;
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+
+.quest-card__meta {
+  display: flex;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: #5a4f36;
+  margin-bottom: 12px;
+}
+
+.quest-card__status {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+.quest-card__status--pending { background: var(--rosewood); color: #ffe9ea; }
+.quest-card__status--open { background: #d9d0bd; color: #4a4331; }
+.quest-card__status--claimed { background: #eac97a; color: #4a3a0f; }
+.quest-card__status--done { background: var(--sage); color: #eafff1; }
+
+.quest-card__footer { display: flex; gap: 8px; }
+
+.quest-card .btn { font-size: 0.82rem; padding: 8px 12px; }
+
+.quest-card__by {
+  font-size: 0.72rem;
+  color: #7a6f52;
+  margin-top: 8px;
+}
+
+/* =========================================================
+   LEADERBOARD
+   ========================================================= */
+
+.side-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin: 0 0 14px;
+}
+
+.leaderboard {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaderboard__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink-raised);
+  border: 1px solid var(--ink-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.leaderboard__rank {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-text-dim);
+  width: 18px;
+}
+
+.leaderboard__avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--ember);
+  color: #241a06;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.leaderboard__info { flex: 1; min-width: 0; }
+.leaderboard__name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leaderboard__level {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-text-dim);
+}
+
+.leaderboard__pts {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--ember-bright);
+  font-weight: 600;
+}
+
+/* =========================================================
+   MODALS
+   ========================================================= */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 11, 15, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.modal {
+  width: 100%;
+  max-width: 440px;
+  background: var(--ink-raised);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  padding: 22px 24px 24px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.modal__head h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.modal-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.proof-quest-title {
+  font-size: 0.85rem;
+  color: var(--ink-text-dim);
+  margin: -6px 0 16px;
+}
+
+.proof-status {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+.proof-status--pending { background: rgba(217,164,65,0.12); color: var(--ember-bright); }
+.proof-status--success { background: rgba(92,139,114,0.15); color: #a9d6bb; }
+.proof-status--fail { background: rgba(139,64,73,0.18); color: #e3a3a9; }
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ember);
+  color: #241a06;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: 0 8px 20px -6px rgba(0,0,0,0.5);
+  z-index: 100;
+  animation: toast-in 0.25s ease;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
