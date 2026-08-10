@@ -24,6 +24,11 @@ const MAX_BASE_POINTS = 50;     // hard cap on what any single quest can be wort
 // Approvals/rejections needed to resolve a pending quest scale with guild
 // size (see requiredApprovalsFor) rather than a fixed number.
 
+// Fixed lifetime for every quest — once this many days have passed since
+// posting, the quest drops off the board for everyone (except someone with
+// an unfinished claim still in progress on it — see isExpired()/renderQuests()).
+const QUEST_LIFETIME_DAYS = 7;
+
 // ---------------------------------------------------------
 // DOM refs
 // ---------------------------------------------------------
@@ -98,6 +103,15 @@ function requiredApprovalsFor(posterUid) {
   const others = users.filter((u) => u.id !== posterUid).length;
   if (others <= 0) return 0;
   return Math.max(1, Math.ceil(others / 2));
+}
+
+// A quest is past due once QUEST_LIFETIME_DAYS have elapsed since it was
+// posted. Quests created before this feature existed have no dueAt and
+// are treated as never expiring.
+function isExpired(q) {
+  if (!q.dueAt) return false;
+  const due = q.dueAt.toDate ? q.dueAt.toDate() : new Date(q.dueAt);
+  return due.getTime() < Date.now();
 }
 
 // ---------------------------------------------------------
@@ -231,7 +245,17 @@ function renderQuests() {
   questList.innerHTML = "";
 
   // Rejected quests stay in Firestore for the record but never render.
-  const visibleQuests = quests.filter((q) => q.status !== "rejected");
+  // Past-due quests drop off the board too — unless the current viewer
+  // still has an unfinished claim on it, so they don't lose in-progress
+  // work just because the clock ran out on the listing itself.
+  const visibleQuests = quests.filter((q) => {
+    if (q.status === "rejected") return false;
+    if (isExpired(q)) {
+      const myClaim = (q.claims || {})[currentUser.uid];
+      return !!myClaim && myClaim.status === "in_progress";
+    }
+    return true;
+  });
   emptyState.hidden = visibleQuests.length > 0;
 
   const pendingForMe = visibleQuests.filter(
@@ -255,11 +279,10 @@ function renderQuests() {
     card.className = "quest-card";
     card.style.setProperty("--tilt", `${(i % 5) - 2}deg`);
 
+    const expired = isExpired(q);
     const statusMap = {
       pending_approval: { cls: "pending", label: "Needs Approval" },
-      open: { cls: "open", label: "Open" },
-      claimed: { cls: "claimed", label: "In progress" },
-      done: { cls: "done", label: "Completed" },
+      open: { cls: expired ? "expired" : "open", label: expired ? "Past Due" : "Open" },
     };
     const { cls: statusClass, label: statusLabel } = statusMap[q.status] || statusMap.open;
 
@@ -282,13 +305,42 @@ function renderQuests() {
         `;
       }
     } else if (q.status === "open") {
-      footer = `<button class="btn btn--primary" data-action="claim" data-id="${q.id}">Claim quest</button>`;
-    } else if (q.status === "claimed" && q.claimedById === currentUser.uid) {
-      footer = `<button class="btn btn--accent" data-action="turnin" data-id="${q.id}">Turn in work</button>`;
-    } else if (q.status === "claimed") {
-      footer = `<span class="quest-card__by">Claimed by ${escapeHtml(q.claimedByName || "someone")}</span>`;
-    } else if (q.status === "done") {
-      footer = `<span class="quest-card__by">✓ by ${escapeHtml(q.claimedByName || "—")} · +${q.earnedPoints} pts</span>`;
+      const claims = q.claims || {};
+      const completedByUids = q.completedByUids || [];
+      const myClaim = claims[currentUser.uid];
+
+      // One row per person who's claimed this quest — everyone can see
+      // who's working it and who's finished, since it's no longer
+      // exclusive to a single claimant.
+      const rows = Object.entries(claims)
+        .map(([uid, c]) => {
+          if (c.status === "done") {
+            const mine = uid === currentUser.uid;
+            return `<div class="quest-card__claim">
+              <span>✓ ${escapeHtml(c.name)} · +${c.earnedPoints ?? 0} pts</span>
+              ${
+                mine
+                  ? `<button class="btn btn--small" data-action="remove-claim" data-id="${q.id}">Remove</button>`
+                  : ""
+              }
+            </div>`;
+          }
+          return `<div class="quest-card__claim">
+            <span>⏳ ${escapeHtml(c.name)} — in progress</span>
+          </div>`;
+        })
+        .join("");
+
+      let actionRow = "";
+      if (myClaim && myClaim.status === "in_progress") {
+        actionRow = `<button class="btn btn--accent" data-action="turnin" data-id="${q.id}">Turn in work</button>`;
+      } else if (!myClaim && !completedByUids.includes(currentUser.uid) && !expired) {
+        actionRow = `<button class="btn btn--primary" data-action="claim" data-id="${q.id}">Claim quest</button>`;
+      } else if (!myClaim && expired) {
+        actionRow = `<span class="quest-card__by">Past due — no longer claimable</span>`;
+      }
+
+      footer = `${rows}${actionRow}`;
     }
 
     card.innerHTML = `
@@ -329,6 +381,7 @@ questList.addEventListener("click", (e) => {
   if (action === "turnin") openProofModal(id);
   if (action === "approve") voteOnQuest(id, "approve");
   if (action === "reject") voteOnQuest(id, "reject");
+  if (action === "remove-claim") removeClaim(id);
 });
 
 async function voteOnQuest(id, vote) {
@@ -367,24 +420,58 @@ async function voteOnQuest(id, vote) {
   }
 }
 
+// Claiming no longer locks a quest to one person — any number of guild
+// members can claim the same quest and work it independently. Each
+// person just gets their own entry in the quest's `claims` map, with
+// their own clock and their own eventual points.
 async function claimQuest(id) {
   const ref = db.collection("quests").doc(id);
   try {
     await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);
       if (!doc.exists || doc.data().status !== "open") {
-        throw new Error("Quest was already claimed.");
+        throw new Error("This quest isn't open to claim.");
+      }
+      const data = doc.data();
+      if (isExpired(data)) {
+        throw new Error("This quest is past due.");
+      }
+      const claims = data.claims || {};
+      const completedByUids = data.completedByUids || [];
+      if (claims[currentUser.uid]) {
+        throw new Error("You've already claimed this quest.");
+      }
+      if (completedByUids.includes(currentUser.uid)) {
+        throw new Error("You've already completed this quest.");
       }
       tx.update(ref, {
-        status: "claimed",
-        claimedById: currentUser.uid,
-        claimedByName: currentUser.name,
-        startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        [`claims.${currentUser.uid}`]: {
+          name: currentUser.name,
+          status: "in_progress",
+          startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        },
       });
     });
     showToast("Quest claimed — good luck!");
   } catch (err) {
     showToast(err.message || "Couldn't claim that quest.");
+  }
+}
+
+// Lets someone clear their own completed claim off a quest card once
+// they're done looking at it. Only ever touches the caller's own entry —
+// it never affects the quest itself or anyone else's claim on it. Their
+// uid stays in completedByUids so they can't just re-claim for more points.
+async function removeClaim(id) {
+  const ref = db.collection("quests").doc(id);
+  try {
+    await ref.update({
+      [`claims.${currentUser.uid}`]: firebase.firestore.FieldValue.delete(),
+    });
+    showToast("Removed.");
+  } catch (err) {
+    console.error(err);
+    showToast("Couldn't remove that.");
   }
 }
 
@@ -430,6 +517,9 @@ questForm.addEventListener("submit", async (e) => {
 
     const required = requiredApprovalsFor(currentUser.uid);
     const initialStatus = required === 0 ? "open" : "pending_approval";
+    const dueAt = firebase.firestore.Timestamp.fromDate(
+      new Date(Date.now() + QUEST_LIFETIME_DAYS * 24 * 60 * 60 * 1000)
+    );
 
     await db.collection("quests").add({
       title,
@@ -441,6 +531,9 @@ questForm.addEventListener("submit", async (e) => {
       requiredApprovals: required,
       approvals: [],
       rejections: [],
+      claims: {},
+      completedByUids: [],
+      dueAt,
       createdById: currentUser.uid,
       createdByName: currentUser.name,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -621,30 +714,37 @@ async function callGemini(prompt, maxOutputTokens) {
   return data.text || "";
 }
 
+// Each claimant is scored off their own claim's startedAt, not a single
+// quest-level timestamp — so two people working the same quest at
+// different speeds each get points based on their own time taken.
 async function completeQuest(quest, proof) {
   const ref = db.collection("quests").doc(quest.id);
   const userRef = db.collection("users").doc(currentUser.uid);
 
   await db.runTransaction(async (tx) => {
     const questDoc = await tx.get(ref);
-    if (!questDoc.exists || questDoc.data().status !== "claimed") {
-      throw new Error("Quest is no longer available to turn in.");
+    if (!questDoc.exists) {
+      throw new Error("Quest no longer exists.");
     }
     const data = questDoc.data();
+    const myClaim = (data.claims || {})[currentUser.uid];
+    if (!myClaim || myClaim.status !== "in_progress") {
+      throw new Error("You don't have an in-progress claim on this quest.");
+    }
 
     // Speed-based scoring: faster than estimate → bonus, slower → penalty,
     // clamped so nobody can zero out or blow up the reward.
-    const startedAt = data.startedAt ? data.startedAt.toDate() : new Date();
+    const startedAt = myClaim.startedAt ? myClaim.startedAt.toDate() : new Date();
     const elapsedMinutes = Math.max(1, (Date.now() - startedAt.getTime()) / 60000);
     const speedMultiplier = clamp(data.estimateMinutes / elapsedMinutes, 0.5, 2);
     const earnedPoints = Math.round(data.basePoints * speedMultiplier);
 
     tx.update(ref, {
-      status: "done",
-      proof,
-      verified: true,
-      earnedPoints,
-      completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      [`claims.${currentUser.uid}.status`]: "done",
+      [`claims.${currentUser.uid}.proof`]: proof,
+      [`claims.${currentUser.uid}.earnedPoints`]: earnedPoints,
+      [`claims.${currentUser.uid}.completedAt`]: firebase.firestore.FieldValue.serverTimestamp(),
+      completedByUids: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
     });
 
     tx.set(
