@@ -460,7 +460,7 @@ questForm.addEventListener("submit", async (e) => {
     console.error(err);
     setQuestStatus(
       "fail",
-      "Couldn't reach Gemini (check your API key in config.js). Not posted."
+      "Couldn't reach the review service. Not posted — try again."
     );
     questSubmitBtn.disabled = false;
   }
@@ -532,7 +532,7 @@ proofForm.addEventListener("submit", async (e) => {
     console.error(err);
     setProofStatus(
       "fail",
-      "Couldn't reach Gemini (check your API key in config.js). Not marked complete."
+      "Couldn't reach the review service. Not marked complete — try again."
     );
     proofSubmitBtn.disabled = false;
   }
@@ -544,9 +544,8 @@ function setProofStatus(kind, msg) {
   proofStatus.textContent = msg;
 }
 
-// Calls Gemini directly from the browser. Keys are intentionally
-// not hidden here (per project scope) — see config.js for notes
-// on capping usage.
+// Calls the Cloudflare Worker, which holds the Gemini API key server-side
+// and forwards the prompt on to Gemini. The key never reaches the browser.
 async function verifyWithGemini(quest, description) {
   const prompt = `You are a skeptical reviewer checking whether a student plausibly completed a study task. You are NOT grading correctness or quality — you ARE checking that the description contains real, specific evidence of doing the work, not just a claim that it's done.
 
@@ -571,8 +570,7 @@ Example of ACCEPT: "Solved problems 1-10, mostly linear equations, checked answe
 Respond with ONLY a JSON object, no markdown fences, in this exact shape:
 {"completed": true or false, "reason": "one short sentence"}`;
 
-  const data = await callGemini(prompt, 150);
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const text = await callGemini(prompt, 150);
   const cleaned = text.replace(/```json|```/g, "").trim();
 
   try {
@@ -601,8 +599,7 @@ Example ACCEPT: "Read chapter 5" / "Finish algebra worksheet" / "Review flashcar
 Respond with ONLY a JSON object, no markdown fences:
 {"legitimate": true or false, "reason": "one short sentence"}`;
 
-  const data = await callGemini(prompt, 100);
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const text = await callGemini(prompt, 100);
   const cleaned = text.replace(/```json|```/g, "").trim();
 
   try {
@@ -614,17 +611,14 @@ Respond with ONLY a JSON object, no markdown fences:
 }
 
 async function callGemini(prompt, maxOutputTokens) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-  const res = await fetch(url, {
+  const res = await fetch("https://study-guild.pratap-ram-varma.workers.dev", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens },
-    }),
+    body: JSON.stringify({ prompt, maxOutputTokens }),
   });
-  if (!res.ok) throw new Error(`Gemini request failed (${res.status})`);
-  return res.json();
+  if (!res.ok) throw new Error(`Worker request failed (${res.status})`);
+  const data = await res.json();
+  return data.text || "";
 }
 
 async function completeQuest(quest, proof) {
