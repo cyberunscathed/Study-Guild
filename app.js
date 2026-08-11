@@ -14,6 +14,7 @@ const db = firebase.firestore();
 let currentUser = null;      // { uid, name }
 let quests = [];             // live cache of quest docs
 let users = [];              // live cache of user docs
+let privateQuests = [];      // live cache of THIS user's private quest docs
 let activeProofQuestId = null;
 
 // ---------------------------------------------------------
@@ -66,6 +67,20 @@ const proofSubmitBtn = document.getElementById("proofSubmitBtn");
 
 const toastEl = document.getElementById("toast");
 
+// --- Private quests: tabs, panel, modal ---
+const tabPublicBtn = document.getElementById("tabPublicBtn");
+const tabPrivateBtn = document.getElementById("tabPrivateBtn");
+const publicPanel = document.getElementById("publicPanel");
+const privatePanel = document.getElementById("privatePanel");
+
+const newPrivateQuestBtn = document.getElementById("newPrivateQuestBtn");
+const privateQuestModal = document.getElementById("privateQuestModal");
+const closePrivateQuestModal = document.getElementById("closePrivateQuestModal");
+const privateQuestForm = document.getElementById("privateQuestForm");
+const privateQuestList = document.getElementById("privateQuestList");
+const privateEmptyState = document.getElementById("privateEmptyState");
+const privatePointsEl = document.getElementById("privatePoints");
+
 // ---------------------------------------------------------
 // UTIL
 // ---------------------------------------------------------
@@ -112,6 +127,14 @@ function isExpired(q) {
   if (!q.dueAt) return false;
   const due = q.dueAt.toDate ? q.dueAt.toDate() : new Date(q.dueAt);
   return due.getTime() < Date.now();
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ---------------------------------------------------------
@@ -170,6 +193,23 @@ function enterApp(uid, name) {
   meName.textContent = name;
   listenToQuests();
   listenToUsers();
+  listenToPrivateQuests();
+  listenToPrivateProfile();
+}
+
+// ---------------------------------------------------------
+// TABS: Guild Board <-> My Private Quests
+// ---------------------------------------------------------
+
+tabPublicBtn.addEventListener("click", () => switchTab("public"));
+tabPrivateBtn.addEventListener("click", () => switchTab("private"));
+
+function switchTab(tab) {
+  const isPublic = tab === "public";
+  publicPanel.hidden = !isPublic;
+  privatePanel.hidden = isPublic;
+  tabPublicBtn.classList.toggle("tab-btn--active", isPublic);
+  tabPrivateBtn.classList.toggle("tab-btn--active", !isPublic);
 }
 
 // ---------------------------------------------------------
@@ -198,6 +238,39 @@ function listenToUsers() {
         renderMe();
       },
       (err) => console.error("users listener:", err)
+    );
+}
+
+// Query is scoped to ownerId == currentUser.uid — this isn't just a nicety,
+// it's required for the Firestore rules below to allow the query at all,
+// since rules can't filter a list() after the fact, only permit/deny it
+// based on how it's already constrained.
+function listenToPrivateQuests() {
+  db.collection("privateQuests")
+    .where("ownerId", "==", currentUser.uid)
+    .orderBy("createdAt", "desc")
+    .onSnapshot(
+      (snap) => {
+        privateQuests = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        renderPrivateQuests();
+      },
+      (err) => console.error("private quests listener:", err)
+    );
+}
+
+// Private points live on a totally separate doc/collection from the public
+// `users` doc (which anyone can read for the leaderboard) — so there's no
+// way for another guild member to see this even by querying Firestore
+// directly, not just "hidden in the UI".
+function listenToPrivateProfile() {
+  db.collection("privateProfiles")
+    .doc(currentUser.uid)
+    .onSnapshot(
+      (doc) => {
+        const pts = doc.exists ? doc.data().privatePoints || 0 : 0;
+        if (privatePointsEl) privatePointsEl.textContent = `🔒 ${pts} private pts`;
+      },
+      (err) => console.error("private profile listener:", err)
     );
 }
 
@@ -236,6 +309,108 @@ function renderLeaderboard() {
     leaderboardEl.appendChild(li);
   });
 }
+
+// ---------------------------------------------------------
+// RENDER: PRIVATE QUESTS
+// ---------------------------------------------------------
+
+function renderPrivateQuests() {
+  privateQuestList.innerHTML = "";
+  privateEmptyState.hidden = privateQuests.length > 0;
+
+  privateQuests.forEach((q, i) => {
+    const card = document.createElement("div");
+    card.className = "quest-card quest-card--private";
+    card.style.setProperty("--tilt", `${(i % 5) - 2}deg`);
+
+    const done = q.status === "done";
+    const footer = done
+      ? `<span class="quest-card__by">✓ Completed · +${q.basePoints} private pts</span>`
+      : `<button class="btn btn--primary" data-action="private-done" data-id="${q.id}">Mark done</button>`;
+
+    card.innerHTML = `
+      <span class="quest-card__status quest-card__status--${done ? "done" : "pending"}">🔒 ${done ? "Completed" : "Private"}</span>
+      <div class="quest-card__subject">${escapeHtml(q.subject || "General")}</div>
+      <h4 class="quest-card__title">${escapeHtml(q.title)}</h4>
+      ${q.notes ? `<p class="quest-card__notes">${escapeHtml(q.notes)}</p>` : ""}
+      <div class="quest-card__meta"><span>⚡ ${q.basePoints} pts</span></div>
+      <div class="quest-card__footer">${footer}</div>
+    `;
+    privateQuestList.appendChild(card);
+  });
+}
+
+privateQuestList.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-action='private-done']");
+  if (!btn) return;
+  completePrivateQuest(btn.dataset.id);
+});
+
+async function completePrivateQuest(id) {
+  const ref = db.collection("privateQuests").doc(id);
+  const profileRef = db.collection("privateProfiles").doc(currentUser.uid);
+  try {
+    await db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      if (!doc.exists || doc.data().status !== "open") {
+        throw new Error("This one's already marked done.");
+      }
+      const data = doc.data();
+      tx.update(ref, {
+        status: "done",
+        completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.set(
+        profileRef,
+        {
+          privatePoints: firebase.firestore.FieldValue.increment(data.basePoints),
+          privateTasksCompleted: firebase.firestore.FieldValue.increment(1),
+        },
+        { merge: true }
+      );
+    });
+    showToast("Marked done — private points added.");
+  } catch (err) {
+    showToast(err.message || "Couldn't mark that done.");
+  }
+}
+
+newPrivateQuestBtn.addEventListener("click", () => (privateQuestModal.hidden = false));
+closePrivateQuestModal.addEventListener("click", () => (privateQuestModal.hidden = true));
+privateQuestModal.addEventListener("click", (e) => {
+  if (e.target === privateQuestModal) privateQuestModal.hidden = true;
+});
+
+// No Gemini calls here at all — private quests are a personal list only
+// the owner ever sees, so there's nobody to protect from a gibberish or
+// easy quest, and nothing here ever touches the public leaderboard.
+privateQuestForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = document.getElementById("pqTitle").value.trim();
+  const subject = document.getElementById("pqSubject").value.trim();
+  const notes = document.getElementById("pqNotes").value.trim();
+  const basePoints = clamp(
+    parseInt(document.getElementById("pqPoints").value, 10) || 0,
+    5,
+    MAX_BASE_POINTS
+  );
+  if (!title) return;
+
+  await db.collection("privateQuests").add({
+    title,
+    subject,
+    notes,
+    basePoints,
+    status: "open",
+    ownerId: currentUser.uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
+
+  privateQuestForm.reset();
+  document.getElementById("pqPoints").value = 20;
+  privateQuestModal.hidden = true;
+  showToast("Private quest created.");
+});
 
 // ---------------------------------------------------------
 // RENDER: QUEST BOARD
@@ -357,14 +532,6 @@ function renderQuests() {
     `;
     questList.appendChild(card);
   });
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 // ---------------------------------------------------------
