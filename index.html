@@ -44,14 +44,30 @@
 
       <!-- QUEST BOARD -->
       <section class="board__main">
-        <div class="board__header">
-          <h2>Open Quests</h2>
-          <button id="newQuestBtn" class="btn btn--accent">+ New Quest</button>
+        <div class="board-tabs">
+          <button id="tabPublicBtn" class="tab-btn tab-btn--active" data-tab="public">Guild Board</button>
+          <button id="tabPrivateBtn" class="tab-btn" data-tab="private">🔒 My Private Quests</button>
         </div>
 
-        <p id="pendingBanner" class="pending-banner" hidden></p>
-        <div id="questList" class="quest-grid"></div>
-        <p id="emptyState" class="empty-state" hidden>The board is clear. Post a quest to get the party started.</p>
+        <div id="publicPanel">
+          <div class="board__header">
+            <h2>Open Quests</h2>
+            <button id="newQuestBtn" class="btn btn--accent">+ New Quest</button>
+          </div>
+          <p id="pendingBanner" class="pending-banner" hidden></p>
+          <div id="questList" class="quest-grid"></div>
+          <p id="emptyState" class="empty-state" hidden>The board is clear. Post a quest to get the party started.</p>
+        </div>
+
+        <div id="privatePanel" hidden>
+          <div class="board__header">
+            <h2>My Private Quests <span id="privatePoints" class="private-points"></span></h2>
+            <button id="newPrivateQuestBtn" class="btn btn--accent">+ New Private Quest</button>
+          </div>
+          <p class="private-note">Only you can see these. Points here are private too — never shown to the guild, and there's no AI check on these.</p>
+          <div id="privateQuestList" class="quest-grid"></div>
+          <p id="privateEmptyState" class="empty-state" hidden>No private quests yet.</p>
+        </div>
       </section>
 
       <!-- LEADERBOARD -->
@@ -90,6 +106,33 @@
         </label>
         <button type="submit" class="btn btn--primary btn--block" id="questSubmitBtn">Post quest</button>
         <p id="qStatus" class="proof-status" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== NEW PRIVATE QUEST MODAL ===================== -->
+  <div id="privateQuestModal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <div class="modal__head">
+        <h3>New private quest</h3>
+        <button id="closePrivateQuestModal" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <form id="privateQuestForm" class="modal-form">
+        <label>Title
+          <input id="pqTitle" type="text" maxlength="80" required placeholder="e.g. Review my own notes" />
+        </label>
+        <div class="modal-form__row">
+          <label>Subject
+            <input id="pqSubject" type="text" maxlength="30" placeholder="e.g. Chemistry" />
+          </label>
+          <label>Points (max 50)
+            <input id="pqPoints" type="number" min="5" max="50" value="20" required />
+          </label>
+        </div>
+        <label>Notes (optional)
+          <textarea id="pqNotes" rows="3" maxlength="400" placeholder="Any detail for yourself"></textarea>
+        </label>
+        <button type="submit" class="btn btn--primary btn--block">Create private quest</button>
       </form>
     </div>
   </div>
