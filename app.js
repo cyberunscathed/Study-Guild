@@ -325,7 +325,8 @@ function renderPrivateQuests() {
 
     const done = q.status === "done";
     const footer = done
-      ? `<span class="quest-card__by">✓ Completed · +${q.basePoints} private pts</span>`
+      ? `<span class="quest-card__by">✓ Completed · +${q.basePoints} private pts</span>
+         <button class="btn btn--small btn--danger" data-action="private-remove" data-id="${q.id}">Remove</button>`
       : `<button class="btn btn--primary" data-action="private-done" data-id="${q.id}">Mark done</button>`;
 
     card.innerHTML = `
@@ -341,9 +342,15 @@ function renderPrivateQuests() {
 }
 
 privateQuestList.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-action='private-done']");
-  if (!btn) return;
-  completePrivateQuest(btn.dataset.id);
+  const doneBtn = e.target.closest("button[data-action='private-done']");
+  if (doneBtn) {
+    completePrivateQuest(doneBtn.dataset.id);
+    return;
+  }
+  const removeBtn = e.target.closest("button[data-action='private-remove']");
+  if (removeBtn) {
+    removePrivateQuest(removeBtn.dataset.id);
+  }
 });
 
 async function completePrivateQuest(id) {
@@ -372,6 +379,26 @@ async function completePrivateQuest(id) {
     showToast("Marked done — private points added.");
   } catch (err) {
     showToast(err.message || "Couldn't mark that done.");
+  }
+}
+
+// Only ever deletes a completed private quest, and only the owner's own
+// (the query that feeds privateQuests is already scoped to ownerId, and
+// Firestore rules should mirror that same restriction on delete). This
+// does NOT touch privatePoints — points already earned stay earned, this
+// just clears the card off the list.
+async function removePrivateQuest(id) {
+  const q = privateQuests.find((x) => x.id === id);
+  if (!q || q.status !== "done") {
+    showToast("Only completed quests can be removed.");
+    return;
+  }
+  try {
+    await db.collection("privateQuests").doc(id).delete();
+    showToast("Removed.");
+  } catch (err) {
+    console.error(err);
+    showToast("Couldn't remove that.");
   }
 }
 
