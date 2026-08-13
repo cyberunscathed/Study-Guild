@@ -34,7 +34,12 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--ink);
+  background-color: var(--ink);
+  /* Faint fractal-noise grain so the dark ink field reads as a worn
+     tavern wall/board rather than a flat digital fill. Subtle enough
+     to disappear at a glance, felt more than seen. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  background-attachment: fixed;
   color: var(--ink-text);
   font-family: var(--font-body);
   min-height: 100vh;
@@ -64,7 +69,11 @@ a { color: var(--ember-bright); }
   letter-spacing: -0.01em;
   color: var(--ink-text);
 }
-.wordmark span { color: var(--ember); font-style: italic; }
+.wordmark span {
+  color: var(--ember);
+  font-style: italic;
+  text-shadow: 0 0 16px rgba(217,164,65,0.35);
+}
 .wordmark--sm { font-size: 1.3rem; }
 
 .eyebrow {
@@ -87,9 +96,8 @@ a { color: var(--ember-bright); }
   justify-content: center;
   padding: 24px;
   background:
-    radial-gradient(600px 400px at 15% 10%, rgba(217,164,65,0.10), transparent 60%),
-    radial-gradient(500px 380px at 85% 90%, rgba(92,139,114,0.10), transparent 60%),
-    var(--ink);
+    radial-gradient(640px 420px at 15% 10%, rgba(217,164,65,0.13), transparent 60%),
+    radial-gradient(560px 400px at 85% 90%, rgba(92,139,114,0.12), transparent 60%);
 }
 
 .login-card {
@@ -97,6 +105,7 @@ a { color: var(--ember-bright); }
   max-width: 400px;
   background: var(--ink-raised);
   border: 1px solid var(--ink-line);
+  border-top: 2px solid var(--ember);
   border-radius: var(--radius);
   padding: 36px 32px;
   box-shadow: var(--shadow-card);
@@ -129,7 +138,9 @@ input[type="text"], input[type="number"], textarea {
   padding: 10px 12px;
   font-size: 0.95rem;
   width: 100%;
+  transition: border-color 0.15s ease;
 }
+input:focus, textarea:focus { border-color: var(--ember); }
 input::placeholder, textarea::placeholder { color: #5c6072; }
 
 label {
@@ -143,20 +154,33 @@ label {
 }
 
 .btn {
+  /* Sane themed default so any button that only carries a modifier
+     like .btn--small (no color variant) still reads as part of the
+     guild, not a bare browser control. */
+  background: var(--parchment-dim);
+  color: #241f14;
   border: none;
   border-radius: 8px;
   padding: 11px 18px;
   font-weight: 600;
   font-size: 0.92rem;
   cursor: pointer;
-  transition: transform 0.08s ease, filter 0.15s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 1px 0 rgba(0,0,0,0.22);
+  transition: transform 0.08s ease, filter 0.15s ease, box-shadow 0.15s ease;
 }
-.btn:hover { filter: brightness(1.08); }
-.btn:active { transform: translateY(1px); }
+.btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 4px 10px -4px rgba(0,0,0,0.5);
+}
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+}
 .btn--block { width: 100%; }
-.btn--primary { background: var(--ember); color: #241a06; }
-.btn--accent { background: var(--sage); color: #0d1a13; }
-.btn--danger { background: var(--rosewood); color: #ffe9ea; }
+.btn--primary { background: linear-gradient(135deg, var(--ember-bright), var(--ember)); color: #241a06; }
+.btn--accent { background: linear-gradient(135deg, #6fa084, var(--sage)); color: #0d1a13; }
+.btn--danger { background: linear-gradient(135deg, #9c525b, var(--rosewood)); color: #ffe9ea; }
 .btn--small { font-size: 0.75rem; padding: 6px 10px; }
 
 .icon-btn {
@@ -167,8 +191,10 @@ label {
   line-height: 1;
   cursor: pointer;
   padding: 4px 8px;
+  box-shadow: none;
+  transition: color 0.15s ease;
 }
-.icon-btn:hover { color: var(--ink-text); }
+.icon-btn:hover { color: var(--ink-text); filter: none; transform: none; }
 
 /* =========================================================
    TOPBAR
@@ -194,7 +220,7 @@ label {
 .me-level {
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  background: var(--ember);
+  background: linear-gradient(135deg, var(--ember-bright), var(--ember));
   color: #241a06;
   padding: 3px 8px;
   border-radius: 999px;
@@ -213,8 +239,14 @@ label {
 .me-xp-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, var(--ember), var(--ember-bright));
+  background: linear-gradient(90deg, var(--ember), var(--ember-bright), var(--ember));
+  background-size: 220% 100%;
+  animation: xp-shimmer 2.6s linear infinite;
   transition: width 0.5s ease;
+}
+@keyframes xp-shimmer {
+  0% { background-position: 0% 0; }
+  100% { background-position: -220% 0; }
 }
 
 .me-points {
@@ -259,6 +291,7 @@ label {
   background: rgba(217,164,65,0.12);
   color: var(--ember-bright);
   border: 1px solid rgba(217,164,65,0.35);
+  border-left: 3px solid var(--ember);
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 0.85rem;
@@ -288,7 +321,7 @@ label {
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: filter 0.15s ease;
+  transition: filter 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .tab-btn:hover { filter: brightness(1.15); }
 .tab-btn--active { background: var(--ember); color: #241a06; border-color: var(--ember); }
@@ -314,31 +347,53 @@ label {
 .quest-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  gap: 20px;
 }
 
 .quest-card {
   position: relative;
-  background: var(--parchment);
+  /* A soft diagonal sheen over the parchment base gives it a slight
+     fibrous, hand-pressed paper feel instead of a flat fill. */
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.4), transparent 42%),
+    linear-gradient(var(--parchment), var(--parchment));
   color: #241f14;
-  border-radius: 6px;
-  padding: 18px 16px 16px;
-  box-shadow: var(--shadow-card);
+  border-radius: 3px 3px 6px 6px;
+  padding: 22px 16px 16px;
+  box-shadow: var(--shadow-card), inset 0 0 0 1px rgba(107,95,63,0.14);
   transform: rotate(var(--tilt, 0deg));
-  transition: transform 0.15s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.quest-card:hover { transform: rotate(0deg) translateY(-2px); }
+.quest-card:hover {
+  transform: rotate(0deg) translateY(-3px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.25), 0 16px 28px -12px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(107,95,63,0.14);
+}
 
+/* The pin: a two-tone wax seal with a small gloss highlight, rather
+   than a flat dot — the detail this whole board is built around. */
 .quest-card::before {
   content: "";
   position: absolute;
-  top: -7px;
+  top: -8px;
   left: 20px;
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
-  background: var(--rosewood);
-  box-shadow: 0 2px 3px rgba(0,0,0,0.4);
+  background: radial-gradient(circle at 32% 28%, #c96e76, var(--rosewood) 62%, #5c282e 100%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.45), inset 0 1px 1px rgba(255,255,255,0.35);
+}
+
+/* A faint fold-shadow beneath the pin, as if the paper is genuinely
+   creased where it meets the board. */
+.quest-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10px;
+  width: 36px;
+  height: 11px;
+  background: radial-gradient(ellipse at top, rgba(36,31,20,0.22), transparent 72%);
+  pointer-events: none;
 }
 
 .quest-card--private { border-left: 4px solid #6b5f3f; }
@@ -441,7 +496,9 @@ label {
   border: 1px solid var(--ink-line);
   border-radius: 8px;
   padding: 10px 12px;
+  transition: border-color 0.15s ease;
 }
+.leaderboard__item:hover { border-color: rgba(217,164,65,0.4); }
 
 .leaderboard__rank {
   font-family: var(--font-mono);
@@ -454,8 +511,11 @@ label {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--ember);
+  /* Struck-medallion feel instead of a flat circle — fits a
+     leaderboard about points and rank. */
+  background: radial-gradient(circle at 32% 28%, var(--ember-bright), var(--ember) 62%, #a8792c 100%);
   color: #241a06;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -493,6 +553,7 @@ label {
   position: fixed;
   inset: 0;
   background: rgba(10, 11, 15, 0.72);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -512,16 +573,32 @@ label {
 }
 
 .modal__head {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--ink-line);
 }
 .modal__head h3 {
   font-family: var(--font-display);
   font-weight: 600;
   margin: 0;
   font-size: 1.2rem;
+}
+/* A small ledger-style ornament marking the seam, in keeping with
+   the guild/quest-board world rather than a bare divider line. */
+.modal__head::after {
+  content: "◆";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  background: var(--ink-raised);
+  color: var(--ember);
+  font-size: 0.6rem;
+  padding: 0 6px;
 }
 
 .modal-form__row {
@@ -556,7 +633,7 @@ label {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--ember);
+  background: linear-gradient(135deg, var(--ember-bright), var(--ember));
   color: #241a06;
   padding: 10px 18px;
   border-radius: 999px;
